@@ -66,7 +66,11 @@ Return<void> SecureElement::init(
   }
 
   // Ignore this dlopen if you don't have libstpreprocess.so
+#if defined(ST_LIB_32)
+  void* stdll = dlopen("/vendor/lib/libstpreprocess.so", RTLD_NOW);
+#else
   void* stdll = dlopen("/vendor/lib64/libstpreprocess.so", RTLD_NOW);
+#endif
   if (stdll) {
     STAram_init fn_init = (STAram_init)dlsym(stdll, "STAram_init");
     if (fn_init) {
@@ -156,6 +160,13 @@ Return<void> SecureElement::openLogicalChannel(const hidl_vec<uint8_t>& aid,
   resApduBuff.channelNumber = 0xff;
   memset(&resApduBuff, 0x00, sizeof(resApduBuff));
   STLOG_HAL_D("%s: Enter", __func__);
+
+  if (aid.size() > 16) {
+    STLOG_HAL_E("%s: Invalid AID size: %u", __func__, (unsigned)aid.size());
+    _hidl_cb(resApduBuff, SecureElementStatus::FAILED);
+    OpenLogicalChannelProcessing = false;
+    return Void();
+  }
 
   if (!isSeInitialized()) {
     STLOG_HAL_D("%s: Enter SeInitialized", __func__);
@@ -307,6 +318,13 @@ Return<void> SecureElement::openBasicChannel(const hidl_vec<uint8_t>& aid,
   hidl_vec<uint8_t> result;
   OpenBasicChannelProcessing = true;
   STLOG_HAL_D("%s: Enter", __func__);
+
+  if (aid.size() > 16) {
+    STLOG_HAL_E("%s: Invalid AID size: %u", __func__, (unsigned)aid.size());
+    _hidl_cb(result, SecureElementStatus::FAILED);
+    OpenBasicChannelProcessing = false;
+    return Void();
+  }
 
   if (!isSeInitialized()) {
     ESESTATUS status = seHalInit();
